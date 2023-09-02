@@ -1,4 +1,5 @@
 import { StatusBar } from "expo-status-bar";
+import Checkbox from "expo-checkbox";
 import {
   StyleSheet,
   Text,
@@ -15,14 +16,21 @@ import { Fontisto } from "@expo/vector-icons";
 import { theme } from "./color";
 
 const STORAGE_KEY = "@toDos";
+const STORAGE_WORK = "@work";
 
 export default function App() {
   const [working, setWorking] = useState(true);
   const [text, setText] = useState("");
   const [toDos, setToDos] = useState({});
 
-  const travel = () => setWorking(false);
-  const work = () => setWorking(true);
+  const travel = async () => {
+    await AsyncStorage.setItem(STORAGE_WORK, JSON.stringify(false));
+    setWorking(false);
+  };
+  const work = async () => {
+    await AsyncStorage.setItem(STORAGE_WORK, JSON.stringify(true));
+    setWorking(true);
+  };
 
   const onChangeText = (payload) => setText(payload);
 
@@ -35,9 +43,17 @@ export default function App() {
     setToDos(JSON.parse(s));
   };
 
+  const loadWorking = async () => {
+    const s = await AsyncStorage.getItem(STORAGE_WORK);
+    setWorking(JSON.parse(s));
+  };
+
   const addTodo = async () => {
     if (text == "") return;
-    const newToDos = { ...toDos, [Date.now()]: { text, working } };
+    const newToDos = {
+      ...toDos,
+      [Date.now()]: { text, working, completed: false },
+    };
     setToDos(newToDos);
     await saveToDos(newToDos);
     setText("");
@@ -60,8 +76,16 @@ export default function App() {
     ]);
   };
 
+  const checkWorkDone = async (key) => {
+    const newToDos = { ...toDos };
+    newToDos[key].completed = !newToDos[key].completed;
+    setToDos(newToDos);
+    await saveToDos(newToDos);
+  };
+
   useEffect(() => {
     loadToDos();
+    loadWorking();
   }, []);
 
   return (
@@ -98,7 +122,27 @@ export default function App() {
         {Object.keys(toDos).map((key) =>
           toDos[key].working === working ? (
             <View style={styles.toDo} key={key}>
-              <Text style={styles.toDoText}>{toDos[key].text}</Text>
+              <View
+                style={{
+                  flexDirection: "row",
+                }}
+              >
+                <Checkbox
+                  style={styles.toDoText}
+                  value={toDos[key].completed}
+                  onValueChange={() => checkWorkDone(key)}
+                  color={toDos[key].completed ? theme.grey : undefined}
+                />
+                <Text
+                  style={{
+                    ...styles.toDoText,
+                    marginTop: -2.5,
+                    color: toDos[key].completed ? theme.grey : "white",
+                  }}
+                >
+                  {toDos[key].text}
+                </Text>
+              </View>
               <TouchableOpacity onPress={() => deleteToDo(key)}>
                 <Fontisto name="trash" size={18} color={theme.grey} />
               </TouchableOpacity>
@@ -147,5 +191,6 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "500",
+    marginHorizontal: 8,
   },
 });
